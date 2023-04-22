@@ -14,7 +14,7 @@ ShadowMapFBO::~ShadowMapFBO()
     }
 
     if (m_shadowMap != 0) {
-        glDeleteTextures(1, &m_shadowMap); // Удаляем текстуру
+        glDeleteFramebuffers(1, &m_shadowMap); // Удаляем текстуру
     }
 }
 

@@ -77,10 +77,12 @@ public:
 
     // Настройка мировых координат
     void SetWVP(const Matrix4f& WVP);
+    void SetLightWVP(const Matrix4f& LightWVP);
     // Функция для отправления матрицы мировых преобразований
     void SetWorldMatrix(const Matrix4f& WVP);
     // Настройка текстур
     void SetTextureUnit(unsigned int TextureUnit);
+    void SetShadowMapTextureUnit(unsigned int TextureUnit);
     // Функция назначает параметры направленного света в шейдере
     // Ещё нужна для вектора направления и интенсивности рассеивания
     void SetDirectionalLight(const DirectionalLight& Light);
@@ -98,8 +100,10 @@ public:
 
 private:
     GLuint m_WVPLocation; // Система координат камеры
+    GLuint m_LightWVPLocation;
     GLuint m_WorldMatrixLocation; // Матрица мировых преобразований
     GLuint m_samplerLocation; // Семплер для текстуры
+    GLuint m_shadowMapLocation;
 
     GLuint m_eyeWorldPosLocation; // Позиция галаз
     GLuint m_matSpecularIntensityLocation; // Интенсивность освящения

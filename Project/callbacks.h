@@ -14,4 +14,5 @@ public:
     virtual void RenderSceneCB() = 0;
     // Просто функция, которая хранит дргую функцию - RenderSceneCB
     virtual void IdleCB() = 0;
+    virtual ~ICallbacks() {};
 };

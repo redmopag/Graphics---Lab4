@@ -22,59 +22,75 @@ public:
 
     Main()
     {
-        m_pEffect = NULL;
-        m_pShadowMapTech = NULL;
+        m_pLightingEffect = NULL;
+        m_pShadowMapEffect = NULL;
         m_pGameCamera = NULL;
         m_pMesh = NULL;
         m_pQuad = NULL;
         m_scale = 0.0f;
+        m_pGroundTex = NULL;
 
-        m_spotLight.AmbientIntensity = 0.0f;
+        m_spotLight.AmbientIntensity = 0.1f;
         m_spotLight.DiffuseIntensity = 0.9f;
         m_spotLight.Color = Vector3f(1.0f, 1.0f, 1.0f);
         m_spotLight.Attenuation.Linear = 0.01f;
-        m_spotLight.Position = Vector3f(-20.0, 20.0, 5.0f);
+        m_spotLight.Position = Vector3f(-20.0, 20.0, 1.0f);
         m_spotLight.Direction = Vector3f(1.0f, -1.0f, 0.0f);
         m_spotLight.Cutoff = 20.0f;
     }
 
     ~Main()
     {
-        SAFE_DELETE(m_pEffect);
-        SAFE_DELETE(m_pShadowMapTech);
+        SAFE_DELETE(m_pLightingEffect);
+        SAFE_DELETE(m_pShadowMapEffect);
         SAFE_DELETE(m_pGameCamera);
         SAFE_DELETE(m_pMesh);
         SAFE_DELETE(m_pQuad);
+        SAFE_DELETE(m_pGroundTex);
     }
 
     // Инициализация камеры, фигуры, света
     bool Init()
     {
+        Vector3f Pos(3.0f, 8.0f, -10.0f);
+        Vector3f Target(0.0f, -0.2f, 1.0f);
+        Vector3f Up(0.0, 1.0f, 0.0f);
+
         if (!m_shadowMapFBO.Init(WINDOW_WIDTH, WINDOW_HEIGHT)) {
             return false;
         }
 
-        m_pGameCamera = new Camera(WINDOW_WIDTH, WINDOW_HEIGHT);
+        m_pGameCamera = new Camera(WINDOW_WIDTH, WINDOW_HEIGHT, Pos, Target, Up);
 
-        m_pEffect = new LightingTechnique();
+        m_pLightingEffect = new LightingTechnique();
 
-        if (!m_pEffect->Init()) {
+        if (!m_pLightingEffect->Init()) {
             printf("Error initializing the lighting technique\n");
             return false;
         }
 
-        m_pShadowMapTech = new ShadowMapTechnique();
+        m_pLightingEffect->Enable();
+        m_pLightingEffect->SetSpotLights(1, &m_spotLight);
+        m_pLightingEffect->SetTextureUnit(0);
+        m_pLightingEffect->SetShadowMapTextureUnit(1);
 
-        if (!m_pShadowMapTech->Init()) {
+        m_pShadowMapEffect = new ShadowMapTechnique();
+
+        if (!m_pShadowMapEffect->Init()) {
             printf("Error initializing the shadow map technique\n");
             return false;
         }
 
-        m_pShadowMapTech->Enable();
 
         m_pQuad = new Mesh();
 
         if (!m_pQuad->LoadMesh("../Content/quad.obj")) {
+            return false;
+        }
+
+        m_pGroundTex = new Texture(GL_TEXTURE_2D, "../Content/test.png");
+
+        if (!m_pGroundTex->Load()) {
             return false;
         }
 
@@ -92,7 +108,7 @@ public:
     virtual void RenderSceneCB()
     {
         m_pGameCamera->OnRender();
-        m_scale += 0.05f;
+        m_scale += 0.5f;
 
         // Функция для рендера в карту высот
         ShadowMapPass();
@@ -110,14 +126,16 @@ public:
         // Очищаем буфер глубины
         glClear(GL_DEPTH_BUFFER_BIT);
 
+        m_pShadowMapEffect->Enable();
+
         // Настройка конвейера
         Pipeline p;
-        p.Scale(0.2f, 0.2f, 0.2f);
+        p.Scale(0.1f, 0.1f, 0.1f);
         p.Rotate(0.0f, m_scale, 0.0f);
         p.WorldPos(0.0f, 0.0f, 5.0f);
         p.SetCamera(m_spotLight.Position, m_spotLight.Direction, Vector3f(0.0f, 1.0f, 0.0f));
         p.SetPerspectiveProj(60.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 1.0f, 50.0f);
-        m_pShadowMapTech->SetWVP(p.GetWVPTrans());
+        m_pShadowMapEffect->SetWVP(p.GetWVPTrans());
         m_pMesh->Render();
 
         // Стандартный буфер кадра
@@ -131,18 +149,36 @@ public:
 
         // говорим шейдеру использовать модуль текстуры 0 и привязываем 
         // теней для чтения в модуле 0
-        m_pShadowMapTech->SetTextureUnit(0);
-        m_shadowMapFBO.BindForReading(GL_TEXTURE0);
+        m_pLightingEffect->Enable();
+        m_shadowMapFBO.BindForReading(GL_TEXTURE1);
 
         // масштабируем квадрат, помещаем перед камерой и рендерим.
         // Во время растеризации карта теней сэмплится и отображается
         Pipeline p;
-        p.Scale(5.0f, 5.0f, 5.0f);
-        p.WorldPos(0.0f, 0.0f, 10.0f);
-        p.SetCamera(m_pGameCamera->GetPos(), m_pGameCamera->GetTarget(), m_pGameCamera->GetUp());
         p.SetPerspectiveProj(60.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 1.0f, 50.0f);
-        m_pShadowMapTech->SetWVP(p.GetWVPTrans());
+        p.Scale(10.0f, 10.0f, 10.0f);
+        p.WorldPos(0.0f, 0.0f, 1.0f);
+        p.Rotate(90.0f, 0.0f, 0.0f);
+        p.SetCamera(m_pGameCamera->GetPos(), m_pGameCamera->GetTarget(), m_pGameCamera->GetUp());
+
+        m_pLightingEffect->SetWVP(p.GetWVPTrans());
+        m_pLightingEffect->SetWorldMatrix(p.GetWorldTrans());
+        p.SetCamera(m_spotLight.Position, m_spotLight.Direction, Vector3f(0.0f, 1.0f, 0.0f));
+        m_pLightingEffect->SetLightWVP(p.GetWVPTrans());
+        m_pLightingEffect->SetEyeWorldPos(m_pGameCamera->GetPos());
+        m_pGroundTex->Bind(GL_TEXTURE0);
         m_pQuad->Render();
+
+        p.Scale(0.1f, 0.1f, 0.1f);
+        p.Rotate(0.0f, m_scale, 0.0f);
+        p.WorldPos(0.0f, 0.0f, 3.0f);
+        p.SetCamera(m_pGameCamera->GetPos(), m_pGameCamera->GetTarget(), m_pGameCamera->GetUp());
+        m_pLightingEffect->SetWVP(p.GetWVPTrans());
+        m_pLightingEffect->SetWorldMatrix(p.GetWorldTrans());
+        p.SetCamera(m_spotLight.Position, m_spotLight.Direction, Vector3f(0.0f, 1.0f, 0.0f));
+        m_pLightingEffect->SetLightWVP(p.GetWVPTrans());
+
+        m_pMesh->Render();
     }
 
     virtual void IdleCB()
@@ -177,14 +213,16 @@ public:
     }
 
 private:
-    LightingTechnique* m_pEffect;
-    ShadowMapTechnique* m_pShadowMapTech;
+    LightingTechnique* m_pLightingEffect;
+    ShadowMapTechnique* m_pShadowMapEffect;
     Camera* m_pGameCamera;
     float m_scale;
     SpotLight m_spotLight;
     Mesh* m_pMesh;
     Mesh* m_pQuad;
     ShadowMapFBO m_shadowMapFBO;
+    Texture* m_pGroundTex;
+
 };
 
 int main(int argc, char** argv)
