@@ -39,7 +39,7 @@ static void InitCallbacks() {
 // Инициализация glut
 void GLUTBackendInit(int argc, char** argv) {
     glutInit(&argc, argv); // Инициализация glut
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA); // Настройка отображения
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH); // Настройка отображения
     glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS); // Настройка опций glut
 }
 
@@ -72,6 +72,9 @@ void GLUTBackendRun(ICallbacks* pCallbacks) {
         fprintf(stderr, "%s : callbacks not specified!\n", __FUNCTION__);
         return;
     }
+
+    // Глубина
+    glEnable(GL_DEPTH_TEST);
 
     // Цвет и улучшение текстуры
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
