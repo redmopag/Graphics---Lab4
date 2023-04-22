@@ -12,7 +12,6 @@
 #include "shadow_map_fbo.h"
 #include "shadow_map_technique.h"
 
-
 #define WINDOW_WIDTH 1024
 #define WINDOW_HEIGHT 768
 
