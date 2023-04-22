@@ -24,6 +24,7 @@
     <ClCompile Include="lighting_technique.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="math_3d.cpp" />
+    <ClCompile Include="mesh.cpp" />
     <ClCompile Include="pipeline.cpp" />
     <ClCompile Include="shadow_map_fbo.cpp" />
     <ClCompile Include="shadow_map_technique.cpp" />
@@ -38,6 +39,7 @@
     <ClInclude Include="glut_backend.h" />
     <ClInclude Include="lighting_technique.h" />
     <ClInclude Include="math_3d.h" />
+    <ClInclude Include="mesh.h" />
     <ClInclude Include="pipeline.h" />
     <ClInclude Include="shadow_map_fbo.h" />
     <ClInclude Include="shadow_map_technique.h" />

@@ -8,26 +8,13 @@
 #include "lighting_technique.h"
 #include "glut_backend.h"
 #include "util.h"
+#include "mesh.h"
+#include "shadow_map_fbo.h"
+#include "shadow_map_technique.h"
+
 
 #define WINDOW_WIDTH 1024
 #define WINDOW_HEIGHT 768
-
-// Содержит координаты фигруы, текстуры и нормали для света
-struct Vertex
-{
-    Vector3f m_pos; // Координата фигуры
-    Vector2f m_tex; // Координата текстуры
-    Vector3f m_normal; // Координаты нормали
-
-    Vertex() {}
-
-    Vertex(Vector3f pos, Vector2f tex)
-    {
-        m_pos = pos;
-        m_tex = tex;
-        m_normal = Vector3f(0.0f, 0.0f, 0.0f); // Координаты по умолчанию 0, 0, 0
-    }
-};
 
 class Main : public ICallbacks
 {
@@ -35,58 +22,65 @@ public:
 
     Main()
     {
-        m_pGameCamera = NULL;
-        m_pTexture = NULL;
         m_pEffect = NULL;
+        m_pShadowMapTech = NULL;
+        m_pGameCamera = NULL;
+        m_pMesh = NULL;
+        m_pQuad = NULL;
         m_scale = 0.0f;
-        m_directionalLight.Color = Vector3f(1.0f, 1.0f, 1.0f);
-        m_directionalLight.AmbientIntensity = 0.0f;
-        m_directionalLight.DiffuseIntensity = 0.0f;
-        m_directionalLight.Direction = Vector3f(1.0f, 0.0, 0.0);
+
+        m_spotLight.AmbientIntensity = 0.0f;
+        m_spotLight.DiffuseIntensity = 0.9f;
+        m_spotLight.Color = Vector3f(1.0f, 1.0f, 1.0f);
+        m_spotLight.Attenuation.Linear = 0.01f;
+        m_spotLight.Position = Vector3f(-20.0, 20.0, 5.0f);
+        m_spotLight.Direction = Vector3f(1.0f, -1.0f, 0.0f);
+        m_spotLight.Cutoff = 20.0f;
     }
 
     ~Main()
     {
-        delete m_pEffect;
-        delete m_pGameCamera;
-        delete m_pTexture;
+        SAFE_DELETE(m_pEffect);
+        SAFE_DELETE(m_pShadowMapTech);
+        SAFE_DELETE(m_pGameCamera);
+        SAFE_DELETE(m_pMesh);
+        SAFE_DELETE(m_pQuad);
     }
 
     // Инициализация камеры, фигуры, света
     bool Init()
     {
-        // Векторы, описывающие камеру по-умолчанию
-        Vector3f Pos(0.0f, 0.0f, 0.0f);
-        Vector3f Target(0.0f, 0.0f, 1.0f);
-        Vector3f Up(0.0, 1.0f, 0.0f);
+        if (!m_shadowMapFBO.Init(WINDOW_WIDTH, WINDOW_HEIGHT)) {
+            return false;
+        }
 
-        m_pGameCamera = new Camera(WINDOW_WIDTH, WINDOW_HEIGHT, Pos, Target, Up);
-
-        unsigned int Indices[] = { 0, 2, 1,
-                                   0, 3, 2 };
-
-        CreateVertexBuffer(Indices, ARRAY_SIZE_IN_ELEMENTS(Indices));
-        CreateIndexBuffer(Indices, sizeof(Indices));
+        m_pGameCamera = new Camera(WINDOW_WIDTH, WINDOW_HEIGHT);
 
         m_pEffect = new LightingTechnique();
 
-        if (!m_pEffect->Init())
-        {
+        if (!m_pEffect->Init()) {
             printf("Error initializing the lighting technique\n");
             return false;
         }
 
-        m_pEffect->Enable();
+        m_pShadowMapTech = new ShadowMapTechnique();
 
-        m_pEffect->SetTextureUnit(0);
-
-        m_pTexture = new Texture(GL_TEXTURE_2D, "test.png");
-
-        if (!m_pTexture->Load()) {
+        if (!m_pShadowMapTech->Init()) {
+            printf("Error initializing the shadow map technique\n");
             return false;
         }
 
-        return true;
+        m_pShadowMapTech->Enable();
+
+        m_pQuad = new Mesh();
+
+        if (!m_pQuad->LoadMesh("../Content/quad.obj")) {
+            return false;
+        }
+
+        m_pMesh = new Mesh();
+
+        return m_pMesh->LoadMesh("../Content/phoenix_ugv.md2");
     }
 
     void Run()
@@ -98,70 +92,57 @@ public:
     virtual void RenderSceneCB()
     {
         m_pGameCamera->OnRender();
+        m_scale += 0.05f;
 
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        m_scale += 0.1f; // Изменяем масштаб для движения
-
-        // Настроивание точки света
-        SpotLight sl[2];
-        sl[0].DiffuseIntensity = 15.0f;
-        sl[0].Color = Vector3f(1.0f, 1.0f, 0.7f);
-        sl[0].Position = Vector3f(-0.0f, -1.9f, -0.0f);
-        sl[0].Direction = Vector3f(sinf(m_scale), 0.0f, cosf(m_scale));
-        sl[0].Attenuation.Linear = 0.1f;
-        sl[0].Cutoff = 20.0f;
-
-        sl[1].DiffuseIntensity = 5.0f;
-        sl[1].Color = Vector3f(0.0f, 1.0f, 1.0f);
-        sl[1].Position = m_pGameCamera->GetPos();
-        sl[1].Direction = m_pGameCamera->GetTarget();
-        sl[1].Attenuation.Linear = 0.1f;
-        sl[1].Cutoff = 10.0f;
-
-        m_pEffect->SetSpotLights(2, sl);
-
-        // Конвейер для камеры
-        Pipeline p;
-        // Вращение
-        p.Rotate(0.0f, 0.0f, 0.0f);
-        // Мировая позиция
-        p.WorldPos(0.0f, 0.0f, 1.0f);
-        // Настройка позиции камеры
-        p.SetCamera(m_pGameCamera->GetPos(), m_pGameCamera->GetTarget(), m_pGameCamera->GetUp());
-        // Настройка перспективы
-        p.SetPerspectiveProj(60.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 1.0f, 100.0f);
-        m_pEffect->SetWVP(p.GetWVPTrans()); // Настройка мировой позиции
-        // вычисление матрицы мировых преобразований, отдельно от матрицы WVP
-        const Matrix4f& WorldTransformation = p.GetWorldTrans();
-        // Устанавливаем матрицу мировых преобразований
-        m_pEffect->SetWorldMatrix(WorldTransformation);
-        m_pEffect->SetDirectionalLight(m_directionalLight); // Настройка освящения
-        // Настройка отражения
-        m_pEffect->SetEyeWorldPos(m_pGameCamera->GetPos());
-        m_pEffect->SetMatSpecularIntensity(1.0f);
-        m_pEffect->SetMatSpecularPower(32);
-
-        glEnableVertexAttribArray(0);
-        glEnableVertexAttribArray(1);
-        glEnableVertexAttribArray(2);
-        glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)12);
-        // включаем и выключаем 3 атрибут вершины и указываем смещение
-        // нормалей внутри вершинного буфере.
-        // Смещение равно 20, так как перед нормалью позиция (12 байт)
-        // и координаты текстуры (8 байт)
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)20);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_IBO);
-        m_pTexture->Bind(GL_TEXTURE0);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-        glDisableVertexAttribArray(0);
-        glDisableVertexAttribArray(1);
-        glDisableVertexAttribArray(2);
+        // Функция для рендера в карту высот
+        ShadowMapPass();
+        // Функция отображения результата
+        RenderPass();
 
         glutSwapBuffers();
+    }
+
+    virtual void ShadowMapPass()
+    {
+        // Привязка FBO
+        m_shadowMapFBO.BindForWriting();
+
+        // Очищаем буфер глубины
+        glClear(GL_DEPTH_BUFFER_BIT);
+
+        // Настройка конвейера
+        Pipeline p;
+        p.Scale(0.2f, 0.2f, 0.2f);
+        p.Rotate(0.0f, m_scale, 0.0f);
+        p.WorldPos(0.0f, 0.0f, 5.0f);
+        p.SetCamera(m_spotLight.Position, m_spotLight.Direction, Vector3f(0.0f, 1.0f, 0.0f));
+        p.SetPerspectiveProj(60.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 1.0f, 50.0f);
+        m_pShadowMapTech->SetWVP(p.GetWVPTrans());
+        m_pMesh->Render();
+
+        // Стандартный буфер кадра
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+
+    virtual void RenderPass()
+    {
+        // очистка буферов и цвета и глубины
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // говорим шейдеру использовать модуль текстуры 0 и привязываем 
+        // теней для чтения в модуле 0
+        m_pShadowMapTech->SetTextureUnit(0);
+        m_shadowMapFBO.BindForReading(GL_TEXTURE0);
+
+        // масштабируем квадрат, помещаем перед камерой и рендерим.
+        // Во время растеризации карта теней сэмплится и отображается
+        Pipeline p;
+        p.Scale(5.0f, 5.0f, 5.0f);
+        p.WorldPos(0.0f, 0.0f, 10.0f);
+        p.SetCamera(m_pGameCamera->GetPos(), m_pGameCamera->GetTarget(), m_pGameCamera->GetUp());
+        p.SetPerspectiveProj(60.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 1.0f, 50.0f);
+        m_pShadowMapTech->SetWVP(p.GetWVPTrans());
+        m_pQuad->Render();
     }
 
     virtual void IdleCB()
@@ -186,18 +167,6 @@ public:
         case 27:
             glutLeaveMainLoop();
             break;
-        case 'a':
-            m_directionalLight.AmbientIntensity += scaleOfChange;
-            break;
-        case 's':
-            m_directionalLight.AmbientIntensity -= scaleOfChange;
-            break;
-        case 'z':
-            m_directionalLight.DiffuseIntensity += scaleOfChange;
-            break;
-        case 'x':
-            m_directionalLight.DiffuseIntensity -= scaleOfChange;
-            break;
         }
     }
 
@@ -208,76 +177,21 @@ public:
     }
 
 private:
-    // функция принимает массив индексов, получает вершины треугольников,
-    // полагаясь на них, и вычисляет нормали
-    void CalcNormals(const unsigned int* pIndices, unsigned int IndexCount,
-        Vertex* pVertices, unsigned int VertexCount) {
-        // В первом цикле мы только набираем нормали для каждой тройки вершин. Для каждого
-        // треугольника она вычисляется
-        // как векторное произведение двух сторон, которые получаются из вершин треугольника
-        for (unsigned int i = 0; i < IndexCount; i += 3) {
-            unsigned int Index0 = pIndices[i];
-            unsigned int Index1 = pIndices[i + 1];
-            unsigned int Index2 = pIndices[i + 2];
-            Vector3f v1 = pVertices[Index1].m_pos - pVertices[Index0].m_pos;
-            Vector3f v2 = pVertices[Index2].m_pos - pVertices[Index0].m_pos;
-            Vector3f Normal = v1.Cross(v2);
-            Normal.Normalize();
-
-            pVertices[Index0].m_normal += Normal;
-            pVertices[Index1].m_normal += Normal;
-            pVertices[Index2].m_normal += Normal;
-        }
-
-        for (unsigned int i = 0; i < VertexCount; i++) {
-            pVertices[i].m_normal.Normalize();
-        }
-    }
-
-    // Создание буфера вершин
-    void CreateVertexBuffer(const unsigned int* pIndices, unsigned int IndexCount)
-    {
-        Vertex Vertices[4] = { Vertex(Vector3f(-10.0f, -2.0f, -10.0f), Vector2f(0.0f, 0.0f)),
-                               Vertex(Vector3f(10.0f, -2.0f, -10.0f), Vector2f(1.0f, 0.0f)),
-                               Vertex(Vector3f(10.0f, -2.0f, 10.0f), Vector2f(1.0f, 1.0f)),
-                               Vertex(Vector3f(-10.0f, -2.0f, 10.0f), Vector2f(0.0f, 1.0f)) };
-
-        unsigned int VertexCount = ARRAY_SIZE_IN_ELEMENTS(Vertices);
-
-        CalcNormals(pIndices, IndexCount, Vertices, VertexCount);
-
-        glGenBuffers(1, &m_VBO);
-        glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
-    }
-
-    // Создание буфера индексов
-    void CreateIndexBuffer(const unsigned int* pIndices, unsigned int SizeInBytes)
-    {
-        unsigned int Indices[] = { 0, 3, 1,
-                                   1, 3, 2,
-                                   2, 3, 0,
-                                   1, 2, 0 };
-
-        glGenBuffers(1, &m_IBO);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_IBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, SizeInBytes, pIndices, GL_STATIC_DRAW);
-    }
-
-    GLuint m_VBO;
-    GLuint m_IBO;
     LightingTechnique* m_pEffect;
-    Texture* m_pTexture;
+    ShadowMapTechnique* m_pShadowMapTech;
     Camera* m_pGameCamera;
     float m_scale;
-    DirectionalLight m_directionalLight;
+    SpotLight m_spotLight;
+    Mesh* m_pMesh;
+    Mesh* m_pQuad;
+    ShadowMapFBO m_shadowMapFBO;
 };
 
 int main(int argc, char** argv)
 {
     GLUTBackendInit(argc, argv);
 
-    if (!GLUTBackendCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, 60, true, "SpotLight")) {
+    if (!GLUTBackendCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, 60, false, "SpotLight")) {
         return 1;
     }
 

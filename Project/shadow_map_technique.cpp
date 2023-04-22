@@ -1,5 +1,9 @@
 #include "shadow_map_technique.h"
 
+/*
+генерирует клип координат пространства через умножение локальной позиции на матрицу WVP
+и проходит через координаты текстур
+*/
 static const char* pVS = "                                                          \n\
 #version 330                                                                        \n\
                                                                                     \n\
@@ -17,6 +21,10 @@ void main()                                                                     
     TexCoordOut = TexCoord;                                                         \n\
 }";
 
+/*
+используется для отображения карты теней в рендере. Координаты 2D текстуры
+используются для получения значения глубины из карты
+*/
 static const char* pFS = "                                                          \n\
 #version 330                                                                        \n\
                                                                                     \n\
@@ -36,6 +44,7 @@ ShadowMapTechnique::ShadowMapTechnique()
 {
 }
 
+// Инициализация шейдеров: вершинных, фрагментных
 bool ShadowMapTechnique::Init()
 {
     if (!Technique::Init()) {
@@ -65,11 +74,13 @@ bool ShadowMapTechnique::Init()
     return true;
 }
 
+// Установка матрицы преобразований
 void ShadowMapTechnique::SetWVP(const Matrix4f& WVP)
 {
     glUniformMatrix4fv(m_WVPLocation, 1, GL_TRUE, (const GLfloat*)WVP.m);
 }
 
+// Установка текстур
 void ShadowMapTechnique::SetTextureUnit(unsigned int TextureUnit)
 {
     glUniform1i(m_textureLocation, TextureUnit);
