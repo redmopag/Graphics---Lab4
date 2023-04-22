@@ -40,13 +40,9 @@ public:
     }
 
     // Настройка проекции перспективы
-    void SetPerspectiveProj(float FOV, float Width, float Height, float zNear, float zFar)
+    void SetPerspectiveProj(const PersProjInfo& p)
     {
-        m_persProj.FOV = FOV;
-        m_persProj.Width = Width;
-        m_persProj.Height = Height;
-        m_persProj.zNear = zNear;
-        m_persProj.zFar = zFar;
+        m_persProjInfo = p;
     }
 
     // Настройка камеры
@@ -68,15 +64,8 @@ private:
     Vector3f m_scale; // Масштаб
     Vector3f m_worldPos; // Позиция
     Vector3f m_rotateInfo; // Вращение
+    PersProjInfo m_persProjInfo;
 
-    // Структура для проекции перспективы
-    struct {
-        float FOV;
-        float Width;
-        float Height;
-        float zNear;
-        float zFar;
-    } m_persProj;
 
     // Структура описывающая камеру
     struct {

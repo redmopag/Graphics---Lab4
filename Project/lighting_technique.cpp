@@ -110,7 +110,7 @@ float CalcShadowFactor(vec4 LightSpacePos)                                      
     UVCoords.y = 0.5 * ProjCoords.y + 0.5;                                                  \n\
     float z = 0.5 * ProjCoords.z + 0.5;                                                     \n\
     float Depth = texture(gShadowMap, UVCoords).x;                                          \n\
-    if (Depth < z + 0.00001)                                                                 \n\
+    if (Depth < ProjCoords.z + 0.005)                                                                 \n\
         return 0.5;                                                                         \n\
     else                                                                                    \n\
         return 1.0;                                                                         \n\
@@ -225,8 +225,10 @@ bool LightingTechnique::Init()
     //------------------------------------------------------------------------------------------------
     // uniform-переменные
     m_WVPLocation = GetUniformLocation("gWVP");
+    m_LightWVPLocation = GetUniformLocation("gLightWVP");
     m_WorldMatrixLocation = GetUniformLocation("gWorld");
     m_samplerLocation = GetUniformLocation("gSampler");
+    m_shadowMapLocation = GetUniformLocation("gShadowMap");
     m_eyeWorldPosLocation = GetUniformLocation("gEyeWorldPos");
     m_dirLightLocation.Color = GetUniformLocation("gDirectionalLight.Base.Color");
     m_dirLightLocation.AmbientIntensity = GetUniformLocation("gDirectionalLight.Base.AmbientIntensity");
@@ -236,14 +238,14 @@ bool LightingTechnique::Init()
     m_matSpecularPowerLocation = GetUniformLocation("gSpecularPower");
     m_numPointLightsLocation = GetUniformLocation("gNumPointLights");
     m_numSpotLightsLocation = GetUniformLocation("gNumSpotLights");
-    m_LightWVPLocation = GetUniformLocation("gLightWVP");
-    m_shadowMapLocation = GetUniformLocation("gShadowMap");
     //------------------------------------------------------------------------------------------------
     
     if (m_dirLightLocation.AmbientIntensity == INVALID_UNIFORM_LOCATION ||
         m_WVPLocation == INVALID_UNIFORM_LOCATION ||
+        m_LightWVPLocation == INVALID_UNIFORM_LOCATION ||
         m_WorldMatrixLocation == INVALID_UNIFORM_LOCATION ||
         m_samplerLocation == INVALID_UNIFORM_LOCATION ||
+        m_shadowMapLocation == INVALID_UNIFORM_LOCATION ||
         m_eyeWorldPosLocation == INVALID_UNIFORM_LOCATION ||
         m_dirLightLocation.Color == INVALID_UNIFORM_LOCATION ||
         m_dirLightLocation.DiffuseIntensity == INVALID_UNIFORM_LOCATION ||

@@ -33,10 +33,8 @@ bool Mesh::MeshEntry::Init(const std::vector<Vertex>& Vertices,
 
     glGenBuffers(1, &IB);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IB);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * NumIndices,
-        &Indices[0], GL_STATIC_DRAW);
-
-    return true;
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * NumIndices, &Indices[0], GL_STATIC_DRAW);
+    return false;
 }
 
 void Mesh::Clear()
@@ -151,6 +149,10 @@ bool Mesh::InitMaterials(const aiScene* pScene, const std::string& Filename)
                     m_Textures[i] = NULL;
                     Ret = false;
                 }
+                else {
+                    printf("Loaded texture '%s'\n", FullPath.c_str());
+                }
+
             }
         }
 
@@ -174,7 +176,7 @@ void Mesh::Render()
     for (unsigned int i = 0; i < m_Entries.size(); i++) {
         glBindBuffer(GL_ARRAY_BUFFER, m_Entries[i].VB);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)12);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)12);
         glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)20);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_Entries[i].IB);
@@ -188,7 +190,7 @@ void Mesh::Render()
         glDrawElements(GL_TRIANGLES, m_Entries[i].NumIndices, GL_UNSIGNED_INT, 0);
     }
 
-    glDisableVertexAttribArray(2);
-    glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+    glDisableVertexAttribArray(2);
 }

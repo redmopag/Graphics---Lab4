@@ -9,7 +9,7 @@
 #include <vector>
 #include <GL/glew.h>
 
-#include "ogldev_util.h"
+#include "util.h"
 #include "math_3d.h"
 #include "texture.h"
 
