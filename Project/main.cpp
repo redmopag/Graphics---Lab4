@@ -194,7 +194,7 @@ int main(int argc, char** argv)
 {
     GLUTBackendInit(argc, argv);
 
-    if (!GLUTBackendCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, 60, true, "SpotLight")) {
+    if (!GLUTBackendCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, 60, true, "Normal mapping")) {
         return 1;
     }
 
