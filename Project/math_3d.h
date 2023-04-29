@@ -115,6 +115,15 @@ inline Vector3f operator-(const Vector3f& l, const Vector3f& r)
     return Ret;
 }
 
+struct PersProjInfo
+{
+    float FOV;
+    float Width;
+    float Height;
+    float zNear;
+    float zFar;
+};
+
 // Умножение вектора l на значение f
 inline Vector3f operator*(const Vector3f& l, float f)
 {
@@ -165,7 +174,7 @@ public:
     void InitRotateTransform(float RotateX, float RotateY, float RotateZ);
     void InitTranslationTransform(float x, float y, float z);
     void InitCameraTransform(const Vector3f& Target, const Vector3f& Up);
-    void InitPersProjTransform(float FOV, float Width, float Height, float zNear, float zFar);
+    void InitPersProjTransform(const PersProjInfo& p);
 };
 
 // Квантернион для вращения вектора вокруг другого вектора

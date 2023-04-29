@@ -57,7 +57,7 @@ bool Mesh::LoadMesh(const std::string& Filename)
 
     const aiScene* pScene = Importer.ReadFile(Filename.c_str(),
         aiProcess_Triangulate | aiProcess_GenSmoothNormals |
-        aiProcess_FlipUVs);
+        aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 
     if (pScene) {
         Ret = InitFromScene(pScene, Filename);
@@ -96,10 +96,13 @@ void Mesh::InitMesh(unsigned int Index, const aiMesh* paiMesh)
         const aiVector3D* pNormal = &(paiMesh->mNormals[i]);
         const aiVector3D* pTexCoord = paiMesh->HasTextureCoords(0) ?
             &(paiMesh->mTextureCoords[0][i]) : &Zero3D;
+        const aiVector3D* pTangent = &(paiMesh->mTangents[i]);
 
         Vertex v(Vector3f(pPos->x, pPos->y, pPos->z),
             Vector2f(pTexCoord->x, pTexCoord->y),
-            Vector3f(pNormal->x, pNormal->y, pNormal->z));
+            Vector3f(pNormal->x, pNormal->y, pNormal->z),
+            Vector3f(pTangent->x, pTangent->y, pTangent->z));
+
         Vertices.push_back(v);
     }
 
@@ -151,6 +154,9 @@ bool Mesh::InitMaterials(const aiScene* pScene, const std::string& Filename)
                     m_Textures[i] = NULL;
                     Ret = false;
                 }
+                else {
+                    printf("Loaded texture '%s'\n", FullPath.c_str());
+                }
             }
         }
 
@@ -170,12 +176,14 @@ void Mesh::Render()
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
 
     for (unsigned int i = 0; i < m_Entries.size(); i++) {
         glBindBuffer(GL_ARRAY_BUFFER, m_Entries[i].VB);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)12);
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)20);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0); // position
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)12); // texture coordinate
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)20); // normal   
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid*)32); // tangent
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_Entries[i].IB);
 
@@ -191,4 +199,6 @@ void Mesh::Render()
     glDisableVertexAttribArray(2);
     glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(3);
+
 }
